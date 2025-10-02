@@ -1,0 +1,45 @@
+policies:
+  # Marks non-compliant EC2 instances with a tag scheduling stop in 4 days
+  - name: ec2-tag-compliance-mark
+    resource: ec2
+    comment: |
+      Mark non-compliant, non-ASG EC2 instances for stoppage in 4 days
+    filters:
+      - "State.Name": running
+      - "tag:aws:autoscaling:groupName": absent
+      - "tag:c7n_status": absent
+      - or:
+          - "tag:Owner": absent
+          - "tag:CostCenter": absent
+          - "tag:Project": absent
+    actions:
+      - type: mark-for-op
+        tag: c7n_status
+        op: stop
+        days: 4
+
+  # Stops instances when the c7n_status mark expires
+  - name: ec2-stop-when-expired
+    resource: ec2
+    filters:
+      - type: marked-for-op
+        tag: c7n_status
+        op: stop
+    actions:
+      - stop
+
+  # Ensures required tags exist; sets defaults if missing
+  - name: ec2-enforce-required-tags
+    resource: ec2
+    filters:
+      - or:
+          - "tag:Owner": absent
+          - "tag:CostCenter": absent
+          - "tag:Project": absent
+    actions:
+      - type: tag
+        tags:
+          Owner: unknown
+          CostCenter: tbd
+          Project: tbd
+
