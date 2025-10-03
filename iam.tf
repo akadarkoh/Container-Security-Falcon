@@ -39,20 +39,19 @@ data "aws_iam_policy_document" "codepipeline_policy" {
 
   statement {
     actions = [
-      "ecr:DescribeImages",
+      "codestar-connections:UseConnection",
     ]
-    resources = [data.aws_ecr_repository.falcon_ecr_repo.arn]
+    resources = [aws_codestarconnections_connection.github_connection.arn]
   }
 
   statement {
     actions = [
-      "codecommit:GetBranch",
-      "codecommit:GetCommit",
-      "codecommit:UploadArchive",
-      "codecommit:GetUploadArchiveStatus",
-      "codecommit:GitPull",
+      "ecs:DescribeServices",
+      "ecs:DescribeTaskDefinition",
+      "ecs:RegisterTaskDefinition",
+      "ecs:UpdateService",
     ]
-    resources = [aws_codecommit_repository.falcon_codecommit_repo.arn]
+    resources = ["*"]
   }
 }
 
@@ -98,25 +97,30 @@ data "aws_iam_policy_document" "codebuild_policy" {
     resources = [
       aws_s3_bucket.codepipeline_bucket.arn,
       "${aws_s3_bucket.codepipeline_bucket.arn}/*",
+      aws_s3_bucket.website_bucket.arn,
+      "${aws_s3_bucket.website_bucket.arn}/*",
     ]
   }
 
   statement {
     actions = [
       "ecr:GetAuthorizationToken",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    actions = [
       "ecr:BatchCheckLayerAvailability",
       "ecr:GetDownloadUrlForLayer",
-      "ecr:GetRepositoryPolicy",
-      "ecr:DescribeRepositories",
-      "ecr:ListImages",
-      "ecr:DescribeImages",
       "ecr:BatchGetImage",
+      "ecr:DescribeImages",
       "ecr:PutImage",
       "ecr:InitiateLayerUpload",
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
     ]
-    resources = [data.aws_ecr_repository.falcon_ecr_repo.arn]
+    resources = [aws_ecr_repository.falcon_ecr_repository.arn]
   }
 }
 

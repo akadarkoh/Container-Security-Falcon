@@ -14,22 +14,24 @@ resource "aws_codepipeline" "falcon_codepipeline" {
       name             = "Source"
       category         = "Source"
       owner            = "AWS"
-      provider         = "CodeCommit"
+      provider         = "CodeStarSourceConnection"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        RepositoryName = aws_codecommit_repository.falcon_codecommit_repo.repository_name
-        BranchName     = "main"
+        ConnectionArn        = aws_codestarconnections_connection.github_connection.arn
+        FullRepositoryId     = "${var.github_owner}/${var.github_repo}"
+        BranchName           = var.github_branch
+        OutputArtifactFormat = "CODE_ZIP"
       }
     }
   }
 
   stage {
-    name = "Build"
+    name = "BuildAndScan"
 
     action {
-      name             = "Build"
+      name             = "BuildAndScan"
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
@@ -39,6 +41,25 @@ resource "aws_codepipeline" "falcon_codepipeline" {
 
       configuration = {
         ProjectName = aws_codebuild_project.falcon_codebuild_project.name
+      }
+    }
+  }
+
+  stage {
+    name = "Deploy"
+
+    action {
+      name            = "DeployToECS"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "ECS"
+      version         = "1"
+      input_artifacts = ["build_output"]
+
+      configuration = {
+        ClusterName = aws_ecs_cluster.falcon_cluster.name
+        ServiceName = aws_ecs_service.falcon_service.name
+        FileName    = "imagedefinitions.json"
       }
     }
   }

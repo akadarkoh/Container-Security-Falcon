@@ -1,0 +1,21 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo Installing dependencies...
+      - npm ci
+  build:
+    commands:
+      - echo Building static site...
+      - npm run build
+  post_build:
+    commands:
+      - echo Syncing build output to S3 bucket $WEBSITE_BUCKET...
+      - aws s3 sync dist/ s3://$WEBSITE_BUCKET --delete
+artifacts:
+  files:
+    - '**/*'
+  base-directory: dist

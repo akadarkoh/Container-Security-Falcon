@@ -1,32 +1,49 @@
 version: 0.2
 
+env:
+  variables:
+    TRIVY_VERSION: "0.49.1"
+
 phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo Installing dependencies...
+      - npm ci
+      - echo Installing Trivy $TRIVY_VERSION...
+      - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v${TRIVY_VERSION}
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 449095351082.dkr.ecr.us-east-1.amazonaws.com
-      - REPOSITORY_URI=449095351082.dkr.ecr.us-east-1.amazonaws.com/box-office-repo
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY"
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
       - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_URI="$REPOSITORY_URI:$IMAGE_TAG"
+      - echo "REPOSITORY_URI=$REPOSITORY_URI" >> $CODEBUILD_SRC_DIR/build.env
+      - echo "IMAGE_TAG=$IMAGE_TAG" >> $CODEBUILD_SRC_DIR/build.env
+      - echo "IMAGE_URI=$IMAGE_URI" >> $CODEBUILD_SRC_DIR/build.env
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...
-      - docker build -t $REPOSITORY_URI:latest .
-      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+      - echo Build started on $(date)
+      - npm run build
+      - echo Building Docker image $REPOSITORY_URI:$IMAGE_TAG ...
+      - docker build -t $IMAGE_URI .
+      - docker tag $IMAGE_URI $REPOSITORY_URI:latest
   post_build:
     commands:
-      - echo Build completed on `date`
-      - echo Pushing the Docker image...
+      - echo Scanning image with Trivy...
+      - trivy image --exit-code 1 --severity CRITICAL,HIGH --no-progress $IMAGE_URI
+      - echo Scan passed. Pushing image to ECR...
+      - docker push $IMAGE_URI
       - docker push $REPOSITORY_URI:latest
-      - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - echo Writing image definitions file...
-      - printf '[{"name":"box-office-repo","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
-      - echo "Docker inspect"
-      - docker inspect $REPOSITORY_URI:$IMAGE_TAG | tee docker_inspect.json
-      - echo "ECR manifest"
-      - aws ecr batch-get-image --repository-name box-office-repo --image-ids imageTag=$IMAGE_TAG --query 'images[0].imageManifest' --output text | jq '.' | tee ecr_manifest.json
+      - echo Syncing build output to S3 bucket $WEBSITE_BUCKET...
+      - aws s3 sync dist/ s3://$WEBSITE_BUCKET --delete
+      - printf '{"imageUri":"%s","imageTag":"%s"}' $REPOSITORY_URI $IMAGE_TAG | tee image_detail.json
+      - printf '[{"name":"falcon-app","imageUri":"%s"}]' $IMAGE_URI | tee imagedefinitions.json
 artifacts:
   files:
+    - image_detail.json
     - imagedefinitions.json
-    - docker_inspect.json
-    - ecr_manifest.json
+    - build.env
