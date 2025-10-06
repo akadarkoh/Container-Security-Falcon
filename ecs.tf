@@ -104,7 +104,7 @@ resource "aws_ecs_task_definition" "falcon_task" {
   container_definitions = jsonencode([
     {
       name      = local.falcon_container_name
-      image     = "${aws_ecr_repository.falcon_ecr_repository.repository_url}:latest"
+      image     = "${data.aws_ecr_repository.falcon_ecr_repository.repository_url}:latest"
       essential = true
       portMappings = [
         {

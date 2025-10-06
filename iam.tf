@@ -120,7 +120,7 @@ data "aws_iam_policy_document" "codebuild_policy" {
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
     ]
-    resources = [aws_ecr_repository.falcon_ecr_repository.arn]
+    resources = [data.aws_ecr_repository.falcon_ecr_repository.arn]
   }
 }
 
