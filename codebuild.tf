@@ -22,7 +22,7 @@ resource "aws_codebuild_project" "falcon_codebuild_project" {
 
     environment_variable {
       name  = "ECR_REPOSITORY"
-      value = aws_ecr_repository.falcon_ecr_repository.name
+      value = data.aws_ecr_repository.falcon_ecr_repository.name
     }
   }
 
