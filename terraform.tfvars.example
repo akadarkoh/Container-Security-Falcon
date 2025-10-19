@@ -1,5 +1,3 @@
-region        = "us-east-1"
-github_owner  = "your-github-username"
-github_repo   = "your-repo-name"
-github_branch = "main"
+region              = "us-east-1"
 ecr_repository_name = "falcon-app"
+ecr_image_tag       = "latest"

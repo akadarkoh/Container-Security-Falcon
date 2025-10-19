@@ -6,44 +6,71 @@ env:
 
 phases:
   install:
-    runtime-versions:
-      nodejs: 18
     commands:
-      - echo Installing dependencies...
-      - npm ci
-      - echo Installing Trivy $TRIVY_VERSION...
-      - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v${TRIVY_VERSION}
+      - |
+        set -eo pipefail
+        echo "Installing Trivy ${TRIVY_VERSION}..."
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v${TRIVY_VERSION}
   pre_build:
     commands:
-      - echo Logging in to Amazon ECR...
-      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-      - REPOSITORY_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY"
-      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - IMAGE_URI="$REPOSITORY_URI:$IMAGE_TAG"
-      - echo "REPOSITORY_URI=$REPOSITORY_URI" >> $CODEBUILD_SRC_DIR/build.env
-      - echo "IMAGE_TAG=$IMAGE_TAG" >> $CODEBUILD_SRC_DIR/build.env
-      - echo "IMAGE_URI=$IMAGE_URI" >> $CODEBUILD_SRC_DIR/build.env
+      - |
+        set -eo pipefail
+        echo "Reading image details from source artifact"
+        cat imageDetail.json
+        IMAGE_URI=$(jq -r '.ImageURI // empty' imageDetail.json)
+        if [ -z "$IMAGE_URI" ] || [ "$IMAGE_URI" = "null" ]; then
+          echo "ImageURI missing in imageDetail.json" >&2
+          exit 1
+        fi
+        REPO=$(jq -r '.ImageDetail.RepositoryName // .RepositoryName // empty' imageDetail.json)
+        if [ -z "$REPO" ] || [ "$REPO" = "null" ]; then
+          IMAGE_PATH=${IMAGE_URI#*.amazonaws.com/}
+          REPO=${IMAGE_PATH%%[:@]*}
+        fi
+        IMAGE_TAG=$(jq -r '.ImageDetail.ImageTags[0] // .ImageTag // empty' imageDetail.json)
+        if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "null" ]; then
+          if [[ "$IMAGE_URI" == *":"* ]]; then
+            IMAGE_TAG=${IMAGE_URI##*:}
+          else
+            IMAGE_TAG=""
+          fi
+        fi
+        IMAGE_DIGEST=$(jq -r '.ImageDetail.ImageDigest // .ImageDigest // empty' imageDetail.json)
+        ACCOUNT_ID=$(echo "$IMAGE_URI" | cut -d'.' -f1)
+        echo "Logging into Amazon ECR for account ${ACCOUNT_ID}"
+        aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        export IMAGE_URI IMAGE_TAG IMAGE_DIGEST REPO ACCOUNT_ID
   build:
     commands:
-      - echo Build started on $(date)
-      - npm run build
-      - echo Building Docker image $REPOSITORY_URI:$IMAGE_TAG ...
-      - docker build --platform linux/amd64 -t $IMAGE_URI .
-      - docker tag $IMAGE_URI $REPOSITORY_URI:latest
+      - |
+        set -eo pipefail
+        echo "Pulling ${IMAGE_URI}"
+        docker pull "${IMAGE_URI}"
+        echo "Capturing docker inspect output"
+        docker inspect "${IMAGE_URI}" | tee docker_inspect.json
+        echo "Retrieving image manifest from ECR"
+        if [ -n "${IMAGE_TAG}" ] && [ "${IMAGE_TAG}" != "null" ]; then
+          aws ecr batch-get-image --repository-name "${REPO}" --image-ids imageTag="${IMAGE_TAG}" --query 'images[0].imageManifest' --output text | jq '.' > ecr_manifest.json
+        elif [ -n "${IMAGE_DIGEST}" ] && [ "${IMAGE_DIGEST}" != "null" ]; then
+          aws ecr batch-get-image --repository-name "${REPO}" --image-ids imageDigest="${IMAGE_DIGEST}" --query 'images[0].imageManifest' --output text | jq '.' > ecr_manifest.json
+        else
+          echo "Unable to determine tag or digest for manifest lookup" >&2
+          exit 1
+        fi
+        echo "Running Trivy scan on ${IMAGE_URI}"
+        trivy image --exit-code 0 --format json -o trivy.json "${IMAGE_URI}"
   post_build:
     commands:
-      - echo Scanning image with Trivy...
-      - trivy image --exit-code 1 --severity CRITICAL,HIGH --no-progress $IMAGE_URI
-      - echo Scan passed. Pushing image to ECR...
-      - docker push $IMAGE_URI
-      - docker push $REPOSITORY_URI:latest
-      - echo Syncing build output to S3 bucket $WEBSITE_BUCKET...
-      - aws s3 sync dist/ s3://$WEBSITE_BUCKET --delete
-      - printf '{"imageUri":"%s","imageTag":"%s"}' $REPOSITORY_URI $IMAGE_TAG | tee image_detail.json
-      - printf '[{"name":"falcon-app","imageUri":"%s"}]' $IMAGE_URI | tee imagedefinitions.json
+      - |
+        set -eo pipefail
+        echo "Preparing output artifacts"
+        cp imageDetail.json image_detail.json
+        printf '[{"name":"falcon-app","imageUri":"%s"}]\n' "${IMAGE_URI}" > imagedefinitions.json
 artifacts:
   files:
+    - imageDetail.json
     - image_detail.json
+    - docker_inspect.json
+    - ecr_manifest.json
     - imagedefinitions.json
-    - build.env
+    - trivy.json

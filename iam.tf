@@ -39,9 +39,9 @@ data "aws_iam_policy_document" "codepipeline_policy" {
 
   statement {
     actions = [
-      "codestar-connections:UseConnection",
+      "ecr:DescribeImages",
     ]
-    resources = [aws_codestarconnections_connection.github_connection.arn]
+    resources = [data.aws_ecr_repository.falcon_ecr_repository.arn]
   }
 
   statement {

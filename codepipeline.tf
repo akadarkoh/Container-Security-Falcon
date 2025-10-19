@@ -14,15 +14,13 @@ resource "aws_codepipeline" "falcon_codepipeline" {
       name             = "Source"
       category         = "Source"
       owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
+      provider         = "ECR"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        ConnectionArn        = aws_codestarconnections_connection.github_connection.arn
-        FullRepositoryId     = "${var.github_owner}/${var.github_repo}"
-        BranchName           = var.github_branch
-        OutputArtifactFormat = "CODE_ZIP"
+        RepositoryName = data.aws_ecr_repository.falcon_ecr_repository.name
+        ImageTag       = var.ecr_image_tag
       }
     }
   }

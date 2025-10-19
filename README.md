@@ -31,6 +31,18 @@ To deploy this infrastructure using Terraform, execute the following commands in
     terraform apply
     ```
 
+### Configuration
+
+Populate `terraform.tfvars` with the Amazon ECR repository name you want the pipeline to monitor. Optionally override `ecr_image_tag` if you want to trigger on a tag other than `latest`.
+
+## Pipeline Flow
+
+1. A container image is pushed to the configured Amazon ECR repository and tag.
+2. Amazon ECR emits an event that starts an AWS CodePipeline execution.
+3. CodePipeline passes the `imageDetail.json` source artifact to AWS CodeBuild.
+4. CodeBuild logs into ECR, pulls the image, captures metadata (`docker_inspect.json`, `ecr_manifest.json`), runs a Trivy scan, and emits artifacts.
+5. The generated `imagedefinitions.json` keeps the downstream ECS deploy stage pointed at the newly scanned image.
+
 ## Image push
 
 ### Standard Build (Linux/Intel Mac)
@@ -76,6 +88,8 @@ docker push <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest
 ```
 
 **Note:** The `Dockerfile.amd64` uses pre-built assets from the `dist` folder and only packages them in an nginx container for the correct AMD64 platform that ECS requires.
+
+Once the image push completes, CodePipeline pulls the new image through CodeBuild for inspection and scanning before the ECS service update runs.
 
 ## Contact us:
 

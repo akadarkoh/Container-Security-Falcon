@@ -32,3 +32,9 @@ terraform.rc
 .idea/
 *.swp
 *.swo
+
+# ignore node moudles
+node_modules/
+
+#ignore dist build
+dist/
