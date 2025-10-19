@@ -28,6 +28,11 @@ resource "aws_s3_bucket_public_access_block" "website_bucket" {
 resource "aws_s3_bucket_policy" "website_bucket" {
   bucket = aws_s3_bucket.website_bucket.id
 
+
+  depends_on = [
+    aws_s3_bucket_public_access_block.website_bucket
+  ]
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

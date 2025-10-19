@@ -33,13 +33,49 @@ To deploy this infrastructure using Terraform, execute the following commands in
 
 ## Image push
 
-Step 1: build your docker image
-`docker build -t <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest .`
+### Standard Build (Linux/Intel Mac)
 
-Step 2: login to ECR
-`aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <iamnumber></iamnumber>.dkr.ecr.us-east-1.amazonaws.com`
-Step 3: push your image to ECR
-`docker push <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest`
+Step 1: Build your Docker image with linux/amd64 platform
+```bash
+docker build --platform linux/amd64 -t <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest .
+```
+
+Step 2: Login to ECR
+```bash
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <id-number>.dkr.ecr.us-east-1.amazonaws.com
+```
+
+Step 3: Push your image to ECR
+```bash
+docker push <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest
+```
+
+### Apple Silicon (M1/M2/M3) Build
+
+For Apple Silicon Macs, cross-platform building with Node.js/esbuild can fail under QEMU emulation. Use this approach instead:
+
+Step 1: Build the application locally
+```bash
+npm ci
+npm run build
+```
+
+Step 2: Login to ECR
+```bash
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <id-number>.dkr.ecr.us-east-1.amazonaws.com
+```
+
+Step 3: Build Docker image using the simplified AMD64 Dockerfile with pre-built assets
+```bash
+docker buildx build --platform linux/amd64 -f Dockerfile.amd64 -t <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest --load .
+```
+
+Step 4: Push your image to ECR
+```bash
+docker push <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest
+```
+
+**Note:** The `Dockerfile.amd64` uses pre-built assets from the `dist` folder and only packages them in an nginx container for the correct AMD64 platform that ECS requires.
 
 ## Contact us:
 
