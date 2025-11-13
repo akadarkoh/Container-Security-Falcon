@@ -1,0 +1,37 @@
+version: 0.2
+
+env:
+  variables:
+    TRIVY_VERSION: "0.49.1"
+
+phases:
+  install:
+    commands:
+      - echo "Installing Trivy $TRIVY_VERSION..."
+      - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v$TRIVY_VERSION
+  pre_build:
+    commands:
+      - echo "Logging into Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_REPO_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - docker build -t $REPOSITORY_URI:latest -t $REPOSITORY_URI:$IMAGE_TAG .
+      - echo "Running Trivy scan..."
+      - trivy image --exit-code 0 --format json -o trivy.json $REPOSITORY_URI:latest
+  post_build:
+    commands:
+      - echo "Pushing Docker image..."
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo "Creating imagedefinitions.json..."
+      - printf '[{"name":"falcon-app","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
+      - cat imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
+    - trivy.json

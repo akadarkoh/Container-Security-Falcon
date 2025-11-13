@@ -91,8 +91,6 @@ docker push <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest
 
 Once the image push completes, CodePipeline pulls the new image through CodeBuild for inspection and scanning before the ECS service update runs.
 
-## Contact us:
+Step 5: Check build status is successful
 
-```
-
-```
+Step 6: Verify image is running on ECS

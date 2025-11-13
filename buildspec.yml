@@ -29,7 +29,7 @@ phases:
         fi
         IMAGE_TAG=$(jq -r '.ImageDetail.ImageTags[0] // .ImageTag // empty' imageDetail.json)
         if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "null" ]; then
-          if [[ "$IMAGE_URI" == *":"* ]]; then
+          if printf '%s' "$IMAGE_URI" | grep -q ':'; then
             IMAGE_TAG=${IMAGE_URI##*:}
           else
             IMAGE_TAG=""

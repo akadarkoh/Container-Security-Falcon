@@ -12,7 +12,7 @@ This is a spec that you should use to implement a project
 
 **Implementation Steps**
 
-- Create ECR repo: Enable vulnerability scanning if desired.
+- Create ECR repo: Enable vulnerability scanning if desired. Only push images that were built for the linux/amd64 platform so every downstream service (CodeBuild + ECS Fargate) can run them.
 - Create S3 artifact bucket: For CodePipeline artifacts.
 - Create CodeBuild project:
   - Environment: Managed image with Docker, enable “Privileged” mode for Docker-in-Docker.
@@ -77,13 +77,20 @@ This is a spec that you should use to implement a project
 - Push a new image/tag to ECR to trigger the pipeline.
 
 The push commands for it to work:
-Use the following steps to authenticate and push an image to your repository. For additional registry authentication methods, including the Amazon ECR credential helper, see Registry Authentication .
+Use the following steps to authenticate and push an image to your repository. For additional registry authentication methods, including the Amazon ECR credential helper, see Registry Authentication. All images deployed through ECS must be built for the linux/amd64 platform so that CodeBuild can pull and scan them, and so the Fargate tasks run on the correct architecture.
+
 Retrieve an authentication token and authenticate your Docker client to your registry. Use the AWS CLI:
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 449095351082.dkr.ecr.us-east-1.amazonaws.com
-Note: If you receive an error using the AWS CLI, make sure that you have the latest version of the AWS CLI and Docker installed.
-Build your Docker image using the following command. For information on building a Docker file from scratch see the instructions here . You can skip this step if your image is already built:
-docker build -t box-office-repo .
+Note: If you receive an error using the AWS CLI, make sure you have the latest versions of both the AWS CLI and Docker installed.
+
+Build your Docker image for **linux/amd64** (the architecture expected by ECS). If you are on an x86_64/Linux host you can run:
+docker build --platform linux/amd64 -t box-office-repo .
+
+On Apple Silicon (arm64) hosts, either enable `docker buildx` or use the provided `Dockerfile.amd64` to ensure the output image is linux/amd64 compatible:
+docker buildx build --platform linux/amd64 -f Dockerfile.amd64 -t box-office-repo:latest --load .
+
 After the build completes, tag your image so you can push the image to this repository:
 docker tag box-office-repo:latest 449095351082.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest
+
 Run the following command to push this image to your newly created AWS repository:
 docker push 449095351082.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest

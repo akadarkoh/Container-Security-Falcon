@@ -50,15 +50,42 @@ data "aws_iam_policy_document" "codepipeline_policy" {
       "ecs:DescribeTaskDefinition",
       "ecs:RegisterTaskDefinition",
       "ecs:UpdateService",
+      "ecs:DescribeClusters",
+      "ecs:ListTasks",
+      "ecs:DescribeTasks",
     ]
     resources = ["*"]
   }
+
+  statement {
+    sid = "AllowPassTaskExecutionRole"
+    actions = [
+      "iam:PassRole",
+    ]
+    resources = [
+      aws_iam_role.falcon_ecs_task_execution_role.arn,
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["ecs-tasks.amazonaws.com"]
+    }
+  }
 }
 
-resource "aws_iam_role_policy" "codepipeline_policy" {
-  name   = "falcon-codepipeline-policy"
-  role   = aws_iam_role.codepipeline_role.id
-  policy = data.aws_iam_policy_document.codepipeline_policy.json
+resource "aws_iam_policy" "codepipeline_policy" {
+  name        = "falcon-codepipeline-policy"
+  description = "Policy for Falcon CodePipeline role"
+  policy      = data.aws_iam_policy_document.codepipeline_policy.json
+
+  tags = {
+    Name = "falcon-codepipeline-policy"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "codepipeline_policy_attachment" {
+  role       = aws_iam_role.codepipeline_role.name
+  policy_arn = aws_iam_policy.codepipeline_policy.arn
 }
 
 data "aws_iam_policy_document" "codebuild_role_policy" {
@@ -124,8 +151,17 @@ data "aws_iam_policy_document" "codebuild_policy" {
   }
 }
 
-resource "aws_iam_role_policy" "codebuild_policy" {
-  name   = "falcon-codebuild-policy"
-  role   = aws_iam_role.codebuild_role.id
-  policy = data.aws_iam_policy_document.codebuild_policy.json
+resource "aws_iam_policy" "codebuild_policy" {
+  name        = "falcon-codebuild-policy"
+  description = "Policy for Falcon CodeBuild role"
+  policy      = data.aws_iam_policy_document.codebuild_policy.json
+
+  tags = {
+    Name = "falcon-codebuild-policy"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_policy_attachment" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = aws_iam_policy.codebuild_policy.arn
 }

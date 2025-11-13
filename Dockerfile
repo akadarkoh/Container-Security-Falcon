@@ -18,11 +18,5 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html/
 
-# Create a non-root user and group
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# Switch to the non-root user
-USER appuser
-
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

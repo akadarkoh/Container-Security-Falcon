@@ -13,14 +13,16 @@ resource "aws_codepipeline" "falcon_codepipeline" {
     action {
       name             = "Source"
       category         = "Source"
-      owner            = "AWS"
-      provider         = "ECR"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        RepositoryName = data.aws_ecr_repository.falcon_ecr_repository.name
-        ImageTag       = var.ecr_image_tag
+        Owner      = "akadarkoh"
+        Repo       = "Container-Security-Falcon"
+        Branch     = "main"
+        OAuthToken = var.github_token
       }
     }
   }
