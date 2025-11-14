@@ -58,18 +58,18 @@ data "aws_iam_policy_document" "codepipeline_policy" {
   }
 
   statement {
-    sid = "AllowPassTaskExecutionRole"
+    sid = "AllowPassRoles"
     actions = [
       "iam:PassRole",
     ]
     resources = [
       aws_iam_role.falcon_ecs_task_execution_role.arn,
+      aws_iam_role.falcon_ecs_task_role.arn,
     ]
     condition {
       test     = "StringEquals"
       variable = "iam:PassedToService"
       values   = [
-        "ecs.amazonaws.com",
         "ecs-tasks.amazonaws.com",
       ]
     }
@@ -167,4 +167,19 @@ resource "aws_iam_policy" "codebuild_policy" {
 resource "aws_iam_role_policy_attachment" "codebuild_policy_attachment" {
   role       = aws_iam_role.codebuild_role.name
   policy_arn = aws_iam_policy.codebuild_policy.arn
+}
+
+data "aws_iam_policy_document" "ecs_task_role_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "falcon_ecs_task_role" {
+  name               = "falcon-ecs-task-role"
+  assume_role_policy = data.aws_iam_policy_document.ecs_task_role_policy.json
 }
