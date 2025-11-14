@@ -68,7 +68,10 @@ data "aws_iam_policy_document" "codepipeline_policy" {
     condition {
       test     = "StringEquals"
       variable = "iam:PassedToService"
-      values   = ["ecs-tasks.amazonaws.com"]
+      values   = [
+        "ecs.amazonaws.com",
+        "ecs-tasks.amazonaws.com",
+      ]
     }
   }
 }
