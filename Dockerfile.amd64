@@ -1,5 +1,5 @@
-# Simplified Dockerfile for AMD64 with pre-built assets
-FROM --platform=linux/amd64 nginx:alpine
+# Simplified Dockerfile for AMD64 with pre-built assets (ECR Public mirror avoids Docker Hub throttling)
+FROM --platform=linux/amd64 public.ecr.aws/nginx/nginx:alpine
 
 # Copy pre-built assets
 COPY dist /usr/share/nginx/html/
