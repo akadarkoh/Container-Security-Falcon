@@ -22,7 +22,7 @@ resource "aws_codepipeline" "falcon_codepipeline" {
         Owner      = "akadarkoh"
         Repo       = "Container-Security-Falcon"
         Branch     = "master_ceesay"
-        OAuthToken = var.github_token
+        OAuthToken = data.aws_secretsmanager_secret_version.github_token.secret_string
       }
     }
   }

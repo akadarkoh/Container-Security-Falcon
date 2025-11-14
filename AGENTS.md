@@ -94,3 +94,6 @@ docker tag box-office-repo:latest 449095351082.dkr.ecr.us-east-1.amazonaws.com/b
 
 Run the following command to push this image to your newly created AWS repository:
 docker push 449095351082.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest
+
+tokens and secrets shouldnt be pushed to the repository.
+create an example.tfvars file
