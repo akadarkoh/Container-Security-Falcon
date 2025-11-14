@@ -70,6 +70,7 @@ data "aws_iam_policy_document" "codepipeline_policy" {
       test     = "StringEquals"
       variable = "iam:PassedToService"
       values   = [
+        "ecs.amazonaws.com",
         "ecs-tasks.amazonaws.com",
       ]
     }
