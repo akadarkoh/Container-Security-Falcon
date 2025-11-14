@@ -49,21 +49,21 @@ resource "aws_codebuild_project" "falcon_codebuild_project" {
             - echo "Logging into Amazon ECR..."
             - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
             - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_REPO_NAME
-            - export COMMIT_HASH=$$(echo $$CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+            - export COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
             - export IMAGE_TAG=$${COMMIT_HASH:-latest}
         build:
           commands:
             - echo "Building Docker image..."
-            - docker build -t $$REPOSITORY_URI:latest -t $$REPOSITORY_URI:$$IMAGE_TAG .
+            - docker build -t $REPOSITORY_URI:latest -t $REPOSITORY_URI:$IMAGE_TAG .
             - echo "Running Trivy scan..."
-            - trivy image --exit-code 0 --format json -o trivy.json $$REPOSITORY_URI:latest
+            - trivy image --exit-code 0 --format json -o trivy.json $REPOSITORY_URI:latest
         post_build:
           commands:
             - echo "Pushing Docker image to ECR..."
-            - docker push $$REPOSITORY_URI:latest
-            - docker push $$REPOSITORY_URI:$$IMAGE_TAG
+            - docker push $REPOSITORY_URI:latest
+            - docker push $REPOSITORY_URI:$IMAGE_TAG
             - echo "Creating imagedefinitions.json..."
-            - printf '[{"name":"falcon-app","imageUri":"%s"}]' $$REPOSITORY_URI:latest > imagedefinitions.json
+            - printf '[{"name":"falcon-app","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
             - cat imagedefinitions.json
       artifacts:
         files:
