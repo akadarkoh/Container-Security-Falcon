@@ -21,7 +21,7 @@ resource "aws_codepipeline" "falcon_codepipeline" {
       configuration = {
         Owner      = "akadarkoh"
         Repo       = "Container-Security-Falcon"
-        Branch     = "main"
+        Branch     = "master_ceesay"
         OAuthToken = var.github_token
       }
     }
