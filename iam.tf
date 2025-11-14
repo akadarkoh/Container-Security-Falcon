@@ -9,6 +9,8 @@ data "aws_iam_policy_document" "codepipeline_role_policy" {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role" "codepipeline_role" {
   name               = "falcon-codepipeline-role"
   assume_role_policy = data.aws_iam_policy_document.codepipeline_role_policy.json
@@ -45,16 +47,41 @@ data "aws_iam_policy_document" "codepipeline_policy" {
   }
 
   statement {
+    sid = "TaskDefinitionPermissions"
     actions = [
-      "ecs:DescribeServices",
       "ecs:DescribeTaskDefinition",
-      "ecs:RegisterTaskDefinition",
-      "ecs:UpdateService",
-      "ecs:DescribeClusters",
-      "ecs:ListTasks",
-      "ecs:DescribeTasks",
+      "ecs:RegisterTaskDefinition"
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid = "ECSServicePermissions"
+    actions = [
+      "ecs:DescribeServices",
+      "ecs:UpdateService"
+    ]
+    resources = ["arn:aws:ecs:${var.region}:${data.aws_caller_identity.current.account_id}:service/${aws_ecs_cluster.falcon_cluster.name}/${aws_ecs_service.falcon_service.name}"]
+  }
+
+  statement {
+    actions = [
+      "ecs:DescribeClusters"
+    ]
+    resources = ["arn:aws:ecs:${var.region}:${data.aws_caller_identity.current.account_id}:cluster/${aws_ecs_cluster.falcon_cluster.name}"]
+  }
+
+  statement {
+    sid = "ECSTagResource"
+    actions = [
+      "ecs:TagResource"
+    ]
+    resources = ["arn:aws:ecs:${var.region}:${data.aws_caller_identity.current.account_id}:task-definition/*:*"]
+    condition {
+      test     = "StringEquals"
+      variable = "ecs:CreateAction"
+      values   = ["RegisterTaskDefinition"]
+    }
   }
 
   statement {
@@ -69,7 +96,7 @@ data "aws_iam_policy_document" "codepipeline_policy" {
     condition {
       test     = "StringEquals"
       variable = "iam:PassedToService"
-      values   = [
+      values = [
         "ecs.amazonaws.com",
         "ecs-tasks.amazonaws.com",
       ]
