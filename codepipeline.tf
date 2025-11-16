@@ -13,16 +13,16 @@ resource "aws_codepipeline" "falcon_codepipeline" {
     action {
       name             = "Source"
       category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        ConnectionArn        = aws_codestarconnections_connection.github_connection.arn
-        FullRepositoryId     = "${var.github_owner}/${var.github_repo}"
-        BranchName           = var.github_branch
-        OutputArtifactFormat = "CODE_ZIP"
+        Owner      = "akadarkoh"
+        Repo       = "Container-Security-Falcon"
+        Branch     = "master_ceesay"
+        OAuthToken = data.aws_secretsmanager_secret_version.github_token.secret_string
       }
     }
   }

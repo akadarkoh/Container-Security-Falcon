@@ -100,17 +100,36 @@ resource "aws_ecs_task_definition" "falcon_task" {
   cpu                      = "512"
   memory                   = "1024"
   execution_role_arn       = aws_iam_role.falcon_ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.falcon_ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
-      name      = local.falcon_container_name
-      image     = "${aws_ecr_repository.falcon_ecr_repository.repository_url}:latest"
-      essential = true
+      name                   = local.falcon_container_name
+      image                  = "${data.aws_ecr_repository.falcon_ecr_repository.repository_url}:latest"
+      essential              = true
+      readonlyRootFilesystem = true
       portMappings = [
         {
           containerPort = local.falcon_container_port
           hostPort      = local.falcon_container_port
           protocol      = "tcp"
+        }
+      ]
+      mountPoints = [
+        {
+          sourceVolume  = "tmp"
+          containerPath = "/tmp"
+          readOnly      = false
+        },
+        {
+          sourceVolume  = "var-cache-nginx"
+          containerPath = "/var/cache/nginx"
+          readOnly      = false
+        },
+        {
+          sourceVolume  = "var-run"
+          containerPath = "/var/run"
+          readOnly      = false
         }
       ]
       logConfiguration = {
@@ -123,6 +142,18 @@ resource "aws_ecs_task_definition" "falcon_task" {
       }
     }
   ])
+
+  volume {
+    name = "tmp"
+  }
+
+  volume {
+    name = "var-cache-nginx"
+  }
+
+  volume {
+    name = "var-run"
+  }
 
   tags = {
     Name = "falcon-task"

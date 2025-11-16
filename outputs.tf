@@ -9,6 +9,6 @@ output "alb_dns_name" {
 }
 
 output "ecr_repository_url" {
-  value       = aws_ecr_repository.falcon_ecr_repository.repository_url
+  value       = data.aws_ecr_repository.falcon_ecr_repository.repository_url
   description = "URL of the ECR repository storing container images."
 }
