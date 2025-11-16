@@ -1,12 +1,61 @@
 # Container-Security-Falcon
 
-This project will be about how we secure containers in the cloud before deployment. The container will be stored inside ECR. We will use ECS to write tasks that should be executed before deployment. We will make use of codepipeline to automate the deployment process.
+This project demonstrates how we secure containers in the cloud before deployment. The container is stored inside ECR and deployed using ECS. We use AWS CodePipeline to automate the deployment process, triggered automatically from GitHub pushes.
 
 ## System Design:
 
 ![System Design](system_design/falcon.png)
 
 ## Folder structure:
+
+```
+├── dist/
+├── node_modules/
+├── policy/
+├── public/
+├── src/
+├── system_design/
+├── .dockerignore
+├── .gitignore
+├── AGENTS.md
+├── aws.tf
+├── buildspec-build.yml
+├── buildspec.yml
+├── bun.lockb
+├── codebuild.tf
+├── codepipeline.tf
+├── components.json
+├── deploy-buildspec.yml
+├── Dockerfile
+├── Dockerfile.amd64
+├── ec2.yaml
+├── ecr.tf
+├── ecs.tf
+├── eslint.config.js
+├── gpt-5.md
+├── iam.tf
+├── index.html
+├── main.tf
+├── network.tf
+├── outputs.tf
+├── package-lock.json
+├── package.json
+├── postcss.config.js
+├── README.md
+├── s3.tf
+├── secrets.tf
+├── state.tf
+├── tailwind.config.ts
+├── terraform.tfvars.example
+├── tfplan
+├── tfplan.binary
+├── tfplan.json
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── variables.tf
+└── vite.config.ts
+```
 
 ## Installation:
 
@@ -37,60 +86,29 @@ Populate `terraform.tfvars` with the Amazon ECR repository name you want the pip
 
 ## Pipeline Flow
 
-1. A container image is pushed to the configured Amazon ECR repository and tag.
-2. Amazon ECR emits an event that starts an AWS CodePipeline execution.
-3. CodePipeline passes the `imageDetail.json` source artifact to AWS CodeBuild.
-4. CodeBuild logs into ECR, pulls the image, captures metadata (`docker_inspect.json`, `ecr_manifest.json`), runs a Trivy scan, and emits artifacts.
+1. Code is pushed to the GitHub repository.
+2. GitHub push event triggers AWS CodePipeline execution.
+3. CodePipeline pulls the source code from GitHub and passes it to AWS CodeBuild.
+4. CodeBuild builds the Docker image, pushes it to ECR, captures metadata (`docker_inspect.json`, `ecr_manifest.json`), runs a Trivy scan, and emits artifacts.
 5. The generated `imagedefinitions.json` keeps the downstream ECS deploy stage pointed at the newly scanned image.
+6. ECS service is updated with the new container image.
 
-## Image push
+## Deployment
 
-### Standard Build (Linux/Intel Mac)
+Deployment is now fully automated! Simply push your code changes to the GitHub repository, and the pipeline will:
+- Build the application
+- Create a Docker image
+- Scan for vulnerabilities
+- Deploy to ECS
 
-Step 1: Build your Docker image with linux/amd64 platform
-```bash
-docker build --platform linux/amd64 -t <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest .
-```
+Step 1: Check build status is successful
+![Build Complete](system_design/build_complete.png)
 
-Step 2: Login to ECR
-```bash
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <id-number>.dkr.ecr.us-east-1.amazonaws.com
-```
+Step 2: Verify container is running on ECS
+![Container Running](system_design/alb_address.png)
 
-Step 3: Push your image to ECR
-```bash
-docker push <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest
-```
+Step 3: Verify the website is working
+![Website Working](system_design/complete_website.png)
 
-### Apple Silicon (M1/M2/M3) Build
-
-For Apple Silicon Macs, cross-platform building with Node.js/esbuild can fail under QEMU emulation. Use this approach instead:
-
-Step 1: Build the application locally
-```bash
-npm ci
-npm run build
-```
-
-Step 2: Login to ECR
-```bash
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <id-number>.dkr.ecr.us-east-1.amazonaws.com
-```
-
-Step 3: Build Docker image using the simplified AMD64 Dockerfile with pre-built assets
-```bash
-docker buildx build --platform linux/amd64 -f Dockerfile.amd64 -t <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest --load .
-```
-
-Step 4: Push your image to ECR
-```bash
-docker push <id-number>.dkr.ecr.us-east-1.amazonaws.com/box-office-repo:latest
-```
-
-**Note:** The `Dockerfile.amd64` uses pre-built assets from the `dist` folder and only packages them in an nginx container for the correct AMD64 platform that ECS requires.
-
-Once the image push completes, CodePipeline pulls the new image through CodeBuild for inspection and scanning before the ECS service update runs.
-
-Step 5: Check build status is successful
-
-Step 6: Verify image is running on ECS
+## Improvements:
+we will be using OPAs to have policy as code.
